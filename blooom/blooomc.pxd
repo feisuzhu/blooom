@@ -9,3 +9,5 @@ cdef extern from "bf.h":
     void bf_close(bloomfilter *bf)
     void bf_add(bloomfilter *bf, const unsigned char *data, uint64_t size)
     bint bf_in(bloomfilter *bf, const unsigned char *data, uint64_t size)
+    bint bf_mlock(bloomfilter *bf)
+    bint bf_munlock(bloomfilter *bf)

@@ -1,4 +1,4 @@
-#include <malloc.h>
+#include <stdlib.h>
 #include <math.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
@@ -31,8 +31,8 @@ bloomfilter *bf_fdopen(int fd, uint64_t n, double p)
     uint8_t *data;
     bloomfilter *bf;
 
-    m = (uint64_t)ceil((n * log(p)) / log(1.0 / (pow(2.0, log(2.0)))));
-    k = (int)round(log(2.0) * m / n);
+    m = (uint64_t)ceil(n * (log(p) / log(1.0 / (pow(2.0, log(2.0))))));
+    k = (int)round(log(2.0) * (m / n));
 
     if(m & 0xFFFFF) {
         m = (m | 0xFFFFF) + 1;
@@ -44,8 +44,8 @@ bloomfilter *bf_fdopen(int fd, uint64_t n, double p)
 
     size = st.st_size;
 
-    if(size & 0xFFF || st.st_size < (m >> 8)) {
-        size = m >> 8;
+    if(size & 0xFFF || st.st_size < (m / 8)) {
+        size = m / 8;
         if(ftruncate(fd, size)) {
             return NULL;
         }
@@ -83,7 +83,7 @@ void bf_add(bloomfilter *bf, const unsigned char *data, uint64_t size)
 
     for(i=0; i<bf->k; i++) {
         hash = siphash(pkey, data, size);
-        bf->data[((hash>>8) % bf->m) >> 8] |= (1 << (hash & 7));
+        bf->data[((hash >> 8) % bf->m) / 8] |= (1 << (hash & 7));
         pkey++;
     }
 }
@@ -97,10 +97,30 @@ int bf_in(bloomfilter *bf, const unsigned char *data, uint64_t size)
 
     for(i=0; i<bf->k; i++) {
         hash = siphash(pkey, data, size);
-        if(!(bf->data[((hash>>8) % bf->m) >> 8] & (1 << (hash & 7)))) {
+        if(!(bf->data[((hash >> 8) % bf->m) / 8] & (1 << (hash & 7)))) {
             return 0;
         }
         pkey++;
     }
     return 1;
+}
+
+
+int bf_mlock(bloomfilter *bf)
+{
+    if(mlock(bf->data, bf->mapsize)) {
+        return 0;
+    } else {
+        return 1;
+    }
+}
+
+
+int bf_munlock(bloomfilter *bf)
+{
+    if(munlock(bf->data, bf->mapsize)) {
+        return 0;
+    } else {
+        return 1;
+    }
 }

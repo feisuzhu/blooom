@@ -17,7 +17,7 @@ blooomc = Extension(
 
 setup(
     name='blooom',
-    version='0.0.2',
+    version='0.0.7',
     url='http://www.github.com/feisuzhu/blooom',
     license='MIT',
     description='Bloomfilter library',
