@@ -17,13 +17,14 @@ blooomc = Extension(
 
 setup(
     name='blooom',
-    version='0.0.1',
+    version='0.0.2',
     url='http://www.github.com/feisuzhu/blooom',
     license='MIT',
     description='Bloomfilter library',
     author='Proton',
     author_email='proton@zhihu.com',
     packages=['blooom'],
+    package_data={'blooom': ['*.h']},
     ext_modules=[blooomc],
     zip_safe=False,
 )

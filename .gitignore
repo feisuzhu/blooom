@@ -4,3 +4,5 @@ a.out
 tags
 main.c
 build
+dist
+*.egg-info
