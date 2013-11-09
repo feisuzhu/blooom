@@ -1,3 +1,5 @@
+#ifndef BF_H
+#define BF_H
 #include <stdint.h>
 
 typedef struct _bloomfilter {
@@ -8,7 +10,9 @@ typedef struct _bloomfilter {
     uint8_t *data;  // bloom filter bits
 } bloomfilter;
 
-bloomfilter *bf_open(const char *filename, uint64_t n, double p);
+bloomfilter *bf_fdopen(int fd, uint64_t n, double p);
 void bf_close(bloomfilter *bf);
-void bf_add(bloomfilter *bf, const char *data, uint64_t size);
-int bf_in(bloomfilter *bf, const char *data, uint64_t size);
+void bf_add(bloomfilter *bf, const unsigned char *data, uint64_t size);
+int bf_in(bloomfilter *bf, const unsigned char *data, uint64_t size);
+
+#endif // BF_H

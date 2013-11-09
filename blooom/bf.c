@@ -1,23 +1,33 @@
-#include <fcntl.h>
 #include <malloc.h>
 #include <math.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
-#include <sys/types.h>
 #include <unistd.h>
 #include <string.h>
 
 #include "bf.h"
 #include "siphash.h"
 
-const char *SIPHASH_KEY = "Proton is awesom";
+const char *SIPHASH_KEY = (
+    "There is a place called Gensokyo, "
+    "where lives over 100 girls. "
+    "Youmu is the best of all. "
+    "Yuyuko can eat much. "
+    "Satori can do mind reading, except Koishi's."
+    "Ran and Eirin have first class intelligence, "
+    "while Cirno is an idiot."
+    "If you pay Reimu 100000 yen, "
+    "you can do anything you want to her."
+    "A granny always claims her age as 17, "
+    "her name is Yukar#^dff56&dsg&#$%@%"
+);
 
 
-bloomfilter *bf_open(const char *filename, uint64_t n, double p)
+bloomfilter *bf_fdopen(int fd, uint64_t n, double p)
 {
     uint64_t m, size;
     struct stat st;
-    int k, fd, ret;
+    int k;
     uint8_t *data;
     bloomfilter *bf;
 
@@ -25,13 +35,10 @@ bloomfilter *bf_open(const char *filename, uint64_t n, double p)
     k = (int)round(log(2.0) * m / n);
 
     if(m & 0xFFFFF) {
-        m = m | 0xFFFFF + 1;
+        m = (m | 0xFFFFF) + 1;
     }
 
-    fd = open(filename, O_RDWR | O_CREAT);
-    if(fd == -1) return 0;
     if(fstat(fd, &st)) {
-        close(fd);
         return NULL;
     }
 
@@ -40,14 +47,12 @@ bloomfilter *bf_open(const char *filename, uint64_t n, double p)
     if(size & 0xFFF || st.st_size < (m >> 8)) {
         size = m >> 8;
         if(ftruncate(fd, size)) {
-            close(fd);
             return NULL;
         }
     }
 
     data = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
     if(data == MAP_FAILED) {
-        close(fd);
         return NULL;
     }
 
@@ -65,41 +70,37 @@ bloomfilter *bf_open(const char *filename, uint64_t n, double p)
 void bf_close(bloomfilter *bf)
 {
     munmap(bf->data, bf->mapsize);
-    close(bf->fd);
+    memset(bf, 0, sizeof(bloomfilter));
     free(bf);
 }
 
 
-void bf_add(bloomfilter *bf, const char *data, uint64_t size)
+void bf_add(bloomfilter *bf, const unsigned char *data, uint64_t size)
 {
     int i;
     uint64_t hash;
-
-    char mydata[size];
-    memcpy(mydata, data, size);
+    const unsigned char *pkey = (const unsigned char *)SIPHASH_KEY;
 
     for(i=0; i<bf->k; i++) {
-        hash = siphash(SIPHASH_KEY, mydata, size);
-        bf->data[hash>>8] |= 1 << (hash & 7);
-        mydata[0]++;
+        hash = siphash(pkey, data, size);
+        bf->data[((hash>>8) % bf->m) >> 8] |= (1 << (hash & 7));
+        pkey++;
     }
 }
 
 
-int bf_in(bloomfilter *bf, const char *data, uint64_t size)
+int bf_in(bloomfilter *bf, const unsigned char *data, uint64_t size)
 {
     int i;
     uint64_t hash;
-
-    char mydata[size];
-    memcpy(mydata, data, size);
+    const unsigned char *pkey = (const unsigned char *)SIPHASH_KEY;
 
     for(i=0; i<bf->k; i++) {
-        hash = siphash(SIPHASH_KEY, mydata, size);
-        if(!(bf->data[hash>>8] & (1 << (hash & 7)))) {
+        hash = siphash(pkey, data, size);
+        if(!(bf->data[((hash>>8) % bf->m) >> 8] & (1 << (hash & 7)))) {
             return 0;
         }
-        mydata[0]++;
+        pkey++;
     }
     return 1;
 }
